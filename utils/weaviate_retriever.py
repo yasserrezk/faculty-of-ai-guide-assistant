@@ -10,13 +10,29 @@ from google.genai import types, errors, Client
 from weaviate.classes.config import Property, DataType, Configure
 from weaviate.classes.query import MetadataQuery
 
+dotenv.load_dotenv()
+CONFIG_PATH = Path(__file__).resolve().parent.parent / "config.conf"  
+cfg = configparser.ConfigParser()
+
+try:
+    cfg.read(CONFIG_PATH)
+    w = cfg["weaviate"]  # weaviate configuration
+except:
+    path = Path("config.conf")
+    if not path.is_file():
+        raise FileNotFoundError(f"Config file not found: {path.resolve()}")
+
+    if "weaviate" not in cfg:
+        raise KeyError(f"Missing [weaviate] section in {path}")
+
 
 def get_chunks_texts(path):
-    path = Path(path)
-    if not path.is_file():
-        raise FileNotFoundError(f"Chunks file not found: {path.resolve()}")
+    
+    DATA_PATH = Path(__file__).resolve().parent.parent / f"{path}"  
+    if not DATA_PATH.is_file():
+        raise FileNotFoundError(f"Chunks file not found: {DATA_PATH.resolve()}")
 
-    with path.open("r", encoding="utf-8") as f:
+    with DATA_PATH.open("r", encoding="utf-8") as f:
         chunks = json.load(f)
 
     texts = [f'{c["main"]}\n{c["content"]}' for c in chunks]
@@ -136,7 +152,7 @@ def query(q, alpha=0.5, limit=5):
 
     client = connect()
     col = client.collections.get("FAI_Guide")
-    query_vec = embed_texts([q], "RETRIEVAL_QUERY")
+    query_vec = embed_texts([q], "RETRIEVAL_QUERY")[0]
 
     results = col.query.hybrid(
         query=q,
@@ -146,7 +162,6 @@ def query(q, alpha=0.5, limit=5):
         return_metadata=MetadataQuery(
             score=True,
             certainty=True,
-            creation_time=True,
         ),
     )
 
@@ -158,19 +173,6 @@ def query(q, alpha=0.5, limit=5):
             end="",
         )
         print("-" * 60)
+    
+    client.close()
 
-
-dotenv.load_dotenv()
-
-cfg = configparser.ConfigParser()
-
-try:
-    cfg.read("faculty-of-ai-guide-assistant/config.conf")
-    w = cfg["weaviate"]  # weaviate configuration
-except:
-    path = Path("config.conf")
-    if not path.is_file():
-        raise FileNotFoundError(f"Config file not found: {path.resolve()}")
-
-    if "weaviate" not in cfg:
-        raise KeyError(f"Missing [weaviate] section in {path}")
