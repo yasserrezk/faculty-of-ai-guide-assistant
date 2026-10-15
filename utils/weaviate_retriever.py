@@ -8,6 +8,13 @@ import dotenv
 import weaviate
 from google.genai import types, errors, Client
 from weaviate.classes.config import Property, DataType, Configure
+from weaviate.classes.query import MetadataQuery
+
+
+def get_chunks_texts(path):
+    with open(path, "r+") as data:
+        chunks = json.load(data)
+    texts = [f'{c["main"]}\n{c["content"]}' for c in chunks]
 
 
 def connect():
@@ -119,13 +126,32 @@ def batch_text_vec(chunks, texts):
         client.close()
 
 
-def query(q):
-    
+def query(q, alpha=0.5, limit=5):
+
     client = connect()
     col = client.collections.get("FAI_Guide")
     query_vec = embed_texts([q], "RETRIEVAL_QUERY")
-    
-    results = 
+
+    results = col.query.hybrid(
+        query=q,
+        vector=query_vec,
+        alpha=alpha,
+        limit=limit,
+        return_metadata=MetadataQuery(
+            score=True,
+            certainty=True,
+            creation_time=True,
+        ),
+    )
+
+    for result_num, object in enumerate(results.objects):
+        property = object.properties
+        print("-" * 60)
+        print(
+            f"""  Query {result_num+1}  \n  Score{object.metadata.score:.3f}  \n  {property["content"]}""",
+            end="",
+        )
+        print("-" * 60)
 
 
 dotenv.load_dotenv()
