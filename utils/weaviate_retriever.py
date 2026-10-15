@@ -12,9 +12,15 @@ from weaviate.classes.query import MetadataQuery
 
 
 def get_chunks_texts(path):
-    with open(path, "r+") as data:
-        chunks = json.load(data)
+    path = Path(path)
+    if not path.is_file():
+        raise FileNotFoundError(f"Chunks file not found: {path.resolve()}")
+
+    with path.open("r", encoding="utf-8") as f:
+        chunks = json.load(f)
+
     texts = [f'{c["main"]}\n{c["content"]}' for c in chunks]
+    return chunks, texts
 
 
 def connect():
