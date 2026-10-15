@@ -25,6 +25,33 @@ except:
     if "weaviate" not in cfg:
         raise KeyError(f"Missing [weaviate] section in {path}")
 
+from functools import lru_cache
+
+
+@lru_cache(maxsize=1)
+def _gemini_client():
+    return Client(api_key=os.environ["GEMINI_API_KEY"])
+
+
+@lru_cache(maxsize=256)
+def embed_query(q):
+    gclient = _gemini_client()
+    for attempt in range(3):
+        try:
+            res = gclient.models.embed_content(
+                model="gemini-embedding-001",
+                contents=q,
+                config=types.EmbedContentConfig(
+                    task_type="RETRIEVAL_QUERY", output_dimensionality=768
+                ),
+            )
+            return res.embeddings[0].values
+        except errors.ClientError as e:
+            if e.code == 429 and attempt < 2:
+                time.sleep(2**attempt)  # 1s, 2s
+            else:
+                raise
+
 
 def get_chunks_texts(path):
 
@@ -155,7 +182,7 @@ def query(q, alpha=0.5, limit=5):
     client = connect()
     try:
         col = client.collections.get("FAI_Guide")
-        query_vec = embed_texts([q], "RETRIEVAL_QUERY")[0]
+        query_vec = embed_query([q])
 
         response = col.query.hybrid(
             query=q,

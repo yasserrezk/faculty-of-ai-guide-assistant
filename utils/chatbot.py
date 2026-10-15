@@ -33,14 +33,14 @@ def prompt_augementation(message, rag_query):
     ]
 
 
-def chat_query(message, temperature=0.1, num_ctx=4096):
-
-    chunks = wr.query(message, limit=3)
+def chat_query(message, temperature=0.1, num_ctx=4096,limit=3):
+    
+    chunks = wr.query(message, limit=limit)
     context = "\n\n".join(c for c in chunks)
     resp = requests.post(
         "http://localhost:11434/api/chat",
         json={
-            "model": "qwen2.5:1.5b",
+            "model": "qwen3:4b",
             "messages": prompt_augementation(message, context),
             "stream": False,
             "think": False,

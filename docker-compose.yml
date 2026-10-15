@@ -12,6 +12,8 @@ services:
       CLUSTER_HOSTNAME: node1
     volumes:
       - weaviate_data:/var/lib/weaviate
+    restart: unless-stopped
+
   ollama:
     image: ollama/ollama:latest
     container_name: ollama
@@ -26,7 +28,17 @@ services:
           devices:
             - driver: nvidia
               count: all
-              capabilities: [ gpu ]
+              capabilities: [gpu]
+
+  app:
+    build: .
+    network_mode: host
+    env_file: .env
+    depends_on:
+      - weaviate
+      - ollama
+    restart: unless-stopped
+
 volumes:
   weaviate_data:
   ollama_data:

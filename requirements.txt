@@ -1,0 +1,5 @@
+streamlit
+requests
+weaviate-client>=4.16
+google-genai
+python-dotenv
