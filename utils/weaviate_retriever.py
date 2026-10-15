@@ -152,29 +152,23 @@ def batch_text_vec(chunks, texts):
 
 
 def query(q, alpha=0.5, limit=5):
-
     client = connect()
-    col = client.collections.get("FAI_Guide")
-    query_vec = embed_texts([q], "RETRIEVAL_QUERY")[0]
+    try:
+        col = client.collections.get("FAI_Guide")
+        query_vec = embed_texts([q], "RETRIEVAL_QUERY")[0]
 
-    results = col.query.hybrid(
-        query=q,
-        vector=query_vec,
-        alpha=alpha,
-        limit=limit,
-        return_metadata=MetadataQuery(
-            score=True,
-            certainty=True,
-        ),
-    )
-
-    for result_num, object in enumerate(results.objects):
-        property = object.properties
-        print("-" * 60)
-        print(
-            f"""  Query {result_num+1}  \n  Score{object.metadata.score:.3f}  \n  {property["content"]}""",
-            end="",
+        response = col.query.hybrid(
+            query=q,
+            vector=query_vec,
+            alpha=alpha,
+            limit=limit,
+            return_metadata=MetadataQuery(score=True),
         )
-        print("-" * 60)
 
-    client.close()
+        chunks = []
+        for obj in response.objects:
+            p = obj.properties
+            chunks.append(f"[صفحة {p['page_number']}]\n{p['content']}")
+        return chunks
+    finally:
+        client.close()
