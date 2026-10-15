@@ -11,7 +11,7 @@ from weaviate.classes.config import Property, DataType, Configure
 from weaviate.classes.query import MetadataQuery
 
 dotenv.load_dotenv()
-CONFIG_PATH = Path(__file__).resolve().parent.parent / "config.conf"  
+CONFIG_PATH = Path(__file__).resolve().parent.parent / "config.conf"
 cfg = configparser.ConfigParser()
 
 try:
@@ -27,8 +27,8 @@ except:
 
 
 def get_chunks_texts(path):
-    
-    DATA_PATH = Path(__file__).resolve().parent.parent / f"{path}"  
+
+    DATA_PATH = Path(__file__).resolve().parent.parent / f"{path}"
     if not DATA_PATH.is_file():
         raise FileNotFoundError(f"Chunks file not found: {DATA_PATH.resolve()}")
 
@@ -143,7 +143,10 @@ def batch_text_vec(chunks, texts):
             print(f"Failed: {len(failed)}")
             print(failed[0])
 
-        print("Count:", col.aggregate.over_all(total_count=True).total_count)
+        print(
+            "\x1b[30;41mBatching Process done sucessfully.\x1b[0m\n=> Batchs Count:",
+            col.aggregate.over_all(total_count=True).total_count,
+        )
     finally:
         client.close()
 
@@ -173,6 +176,5 @@ def query(q, alpha=0.5, limit=5):
             end="",
         )
         print("-" * 60)
-    
-    client.close()
 
+    client.close()
