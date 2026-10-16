@@ -10,6 +10,8 @@ services:
       PERSISTENCE_DATA_PATH: /var/lib/weaviate
       ENABLE_API_BASED_MODULES: "true"
       CLUSTER_HOSTNAME: node1
+      ENABLE_MODULES: text2vec-ollama
+      DEFAULT_VECTORIZER_MODULE: none
     volumes:
       - weaviate_data:/var/lib/weaviate
     restart: unless-stopped
@@ -28,7 +30,7 @@ services:
           devices:
             - driver: nvidia
               count: all
-              capabilities: [gpu]
+              capabilities: [ gpu ]
 
   app:
     build: .
