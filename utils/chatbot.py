@@ -1,58 +1,53 @@
+import json
+
 import requests
 from utils import weaviate_retriever as wr
 
+OLLAMA_URL = "http://localhost:15000"
+MODEL = "gemma3:4b"
 
-def prompt_augementation(message, rag_query):
-    SYSTEM_ROLE = """
-    أنت مساعد ذكي متخصص في دليل كلية الذكاء الاصطناعي. مهمتك الإجابة عن أسئلة الطلاب بدقة اعتمادًا على نصوص الدليل فقط.
-    """
+SYSTEM_PROMPT = """
+أنت مساعد ذكي متخصص في دليل كلية الذكاء الاصطناعي. شغلك إنك تجاوب على أسئلة الطلبة بدقة، اعتمادًا على نصوص الدليل اللي قدامك بس.
 
-    SYSTEM_PROMPT = """
 التعليمات:
-1. أجب فقط من السياق المقدّم، ولا تستخدم معلومات من خارجه.
-2. إذا لم تجد الإجابة في السياق، قل: "لم أجد هذه المعلومة في دليل الكلية."
-3. أجب باللغة العربية الفصحى المبسّطة، وبإيجاز ووضوح.
-4. اذكر رقم الصفحة المصدر في نهاية الإجابة، مثال: (المصدر: صفحة 12).
-5. لا تخمّن ولا تختلق أرقامًا أو شروطًا أو تواريخ.
-6. إذا تعارضت المصادر، اذكر ذلك صراحةً.
-"""
+1. جاوب من السياق المقدَّم بس، ومتستخدمش أي معلومة من برّه الدليل.
+2. لو مالقيتش الإجابة في السياق، قول بالنص: "ملقيتش المعلومة دي في دليل الكلية."
+3. جاوب باللهجة المصرية البسيطة والواضحة، وكأنك بتشرح لزميلك.
+4. اشرح بالتفصيل: اذكر الشروط والاستثناءات والأرقام والمواعيد والخطوات اللي في الدليل، ومتكتفيش بإجابة مختصرة. لو الموضوع فيه أكتر من حالة، اشرح كل حالة لوحدها.
+5. رتّب الإجابة لو فيها نقاط كتير (خطوات أو شروط) عشان تبقى سهلة في القراءة.
+6. متذكرش أرقام صفحات أو أي إشارة لمكان المعلومة في الدليل.
+7. متخمّنش ومتألفش أرقام أو شروط أو تواريخ مش موجودة في السياق.
+8. لو في تعارض بين النصوص في السياق، وضّح ده صراحةً واذكر الاختلاف.
+""".strip()
 
-    PROMPT = f"""
-السوال:
-{message}
-البيانات المقدمة:
-{rag_query}
-"""
-
+def prompt_augementation(message, context):
     return [
-        {
-            "role": "system",
-            "content": SYSTEM_ROLE.strip() + "\n" + SYSTEM_PROMPT.strip(),
-        },
-        {"role": "user", "content": PROMPT.strip()},
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "user", "content": f"السؤال:\n{message}\n\nالبيانات المقدمة:\n{context}"},
     ]
 
 
-def chat_query(message, temperature=0.1, num_ctx=4096,limit=3):
-    
-    chunks = wr.query(message, limit=limit)
-    context = "\n\n".join(c for c in chunks)
-    resp = requests.post(
-        "http://localhost:11434/api/chat",
+def chat_stream(message, temperature=0.1, limit=3):
+    context = "\n\n".join(wr.query(message, limit=limit))
+    with requests.post(
+        f"{OLLAMA_URL}/api/chat",
         json={
-            "model": "qwen3:4b",
+            "model": MODEL,
             "messages": prompt_augementation(message, context),
-            "stream": False,
-            "think": False,
-            "options": {
-                "temperature": temperature,
-                "num_ctx": num_ctx,
-            },
+            "stream": True,
+            "options": {"temperature": temperature},
         },
+        stream=True,
         timeout=120,
-    )
+    ) as resp:
+        resp.raise_for_status()
+        for line in resp.iter_lines():
+            if line:
+                chunk = json.loads(line)
+                yield chunk["message"]["content"]
+                if chunk.get("done"):
+                    break
 
-    if resp.ok:
-        return resp.json()["message"]["content"]
-    else:
-        print(resp.status_code, resp.text)
+
+def chat_query(message, **kwargs):
+    return "".join(chat_stream(message, **kwargs))
